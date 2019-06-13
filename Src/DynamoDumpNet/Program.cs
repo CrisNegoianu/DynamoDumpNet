@@ -22,6 +22,7 @@ namespace DynamoDumpNet
         private static string _awsRegion;
         private static bool _overwrite;
         private static bool _useDynamoDBLocal;
+        private static string _localServiceURL = "http://localhost:8000";
 
         private static AmazonDynamoDBClient _client;
         private static DescribeTableResponse _describeTableResponse;
@@ -42,7 +43,7 @@ namespace DynamoDumpNet
             CommandOption fileOption = app.Option("-f|--file <import-file>", "Configures the json file used to restore/backup data", CommandOptionType.SingleValue);
             CommandOption profileOption = app.Option("-p|--profile <profile-name>", "The AWS profile from the credentials file to use when connecting to AWS. If not supplied the default profile is used", CommandOptionType.SingleValue);
             CommandOption regionOption = app.Option("-r|--region <region-code>", "The AWS region to use when connecting to AWS. If not supplied the default region configured in the credentials file is used", CommandOptionType.SingleValue);
-            CommandOption localOption = app.Option("-l|--local <true/false>", "If set it attempts to restore/backup to/from a local instance of DynamoDB. If not supplied false is assumsed", CommandOptionType.SingleValue);
+            CommandOption localOption = app.Option("-l|--local <serviceURL>", "If set it attempts to restore/backup to/from a local instance of DynamoDB. If not supplied false is assumsed", CommandOptionType.SingleValue);
             CommandOption overwriteOption = app.Option("-o|--overwrite ", "If set the destination file will be overwritten if it exists when backing up data", CommandOptionType.SingleValue);
 
             app.OnExecute(async () =>
@@ -63,10 +64,15 @@ namespace DynamoDumpNet
                     _fileName = fileOption.Value();
                 }
 
-                if (localOption.HasValue() && "true".Equals(localOption.Value(), StringComparison.InvariantCultureIgnoreCase))
+                if (localOption.HasValue())
                 {
                     ShowWarning("Using local DynamoDB");
                     _useDynamoDBLocal = true;
+
+                    if (!("true".Equals(localOption.Value(), StringComparison.InvariantCultureIgnoreCase)))
+                    {
+                        _localServiceURL = fileOption.Value();
+                    }
                 }
 
                 if (!profileOption.HasValue())
@@ -413,7 +419,7 @@ namespace DynamoDumpNet
                 // If DynamoDB-Local does seem to be running, so create a client
                 ShowInfo("Setting up a DynamoDB-Local client (DynamoDB Local seems to be running)");
                 AmazonDynamoDBConfig ddbConfig = new AmazonDynamoDBConfig();
-                ddbConfig.ServiceURL = "http://localhost:8000";
+                ddbConfig.ServiceURL = _localServiceURL;
 
                 try
                 {
