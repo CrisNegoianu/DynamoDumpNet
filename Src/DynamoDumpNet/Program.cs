@@ -31,6 +31,8 @@ namespace DynamoDumpNet
         static void Main(string[] args)
         {
             //args = "-m restore -t DynamoDBTableName -p local -r us-east-1 -l true".Split(' ');
+            args = "-m restore -t ServiceHubDev -f DynamoDBData.json -p local -r us-east-1 -l http://192.168.99.100:8000".Split(' ');
+
 
             CommandLineApplication app = new CommandLineApplication();
             app.Name = "DynamoDump.Net";
@@ -71,7 +73,7 @@ namespace DynamoDumpNet
 
                     if (!("true".Equals(localOption.Value(), StringComparison.InvariantCultureIgnoreCase)))
                     {
-                        _localServiceURL = fileOption.Value();
+                        _localServiceURL = localOption.Value();
                     }
                 }
 
@@ -377,6 +379,25 @@ namespace DynamoDumpNet
         {
             if (_useDynamoDBLocal)
             {
+                //parse ip address and port
+                int i = _localServiceURL.Contains("://") ? _localServiceURL.IndexOf("://") : -3;
+                string ipAddress = _localServiceURL.Substring(i + 3);
+
+                i = ipAddress.Contains(":") ? ipAddress.IndexOf(":") : -1;
+                if (i == -1)
+                {
+                    ShowError("ERROR: Port not found. Please specify a port");
+                    return false;
+                }
+                string portText = ipAddress.Substring(i + 1);
+                ipAddress = ipAddress.Substring(0, i);
+                int port = 0;
+                if (!int.TryParse(portText, out port))
+                {
+                    ShowError("ERROR: Port is not a number. Please specify a valid port");
+                    return false;
+                }
+
                 // First, check to see whether anyone is listening on the DynamoDB local port
                 // (by default, this is port 8000, so if you are using a different port, modify this accordingly)
                 bool localFound = false;
@@ -384,7 +405,7 @@ namespace DynamoDumpNet
                 {
                     using (var tcp_client = new TcpClient())
                     {
-                        var result = tcp_client.BeginConnect("localhost", 8000, null, null);
+                        var result = tcp_client.BeginConnect(ipAddress, port, null, null);
                         localFound = result.AsyncWaitHandle.WaitOne(3000); // Wait 3 seconds
                         tcp_client.EndConnect(result);
                     }
@@ -395,7 +416,7 @@ namespace DynamoDumpNet
                 }
                 if (!localFound)
                 {
-                    ShowError("ERROR: DynamoDB Local does not appear to have been started. Checked port 8000");
+                    ShowError("ERROR: DynamoDB Local does not appear to have been started. Checked port " + port);
                     return (false);
                 }
 
