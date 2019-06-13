@@ -31,8 +31,6 @@ namespace DynamoDumpNet
         static void Main(string[] args)
         {
             //args = "-m restore -t DynamoDBTableName -p local -r us-east-1 -l true".Split(' ');
-            args = "-m restore -t ServiceHubDev -f DynamoDBData.json -p local -r us-east-1 -l http://192.168.99.100:8000".Split(' ');
-
 
             CommandLineApplication app = new CommandLineApplication();
             app.Name = "DynamoDump.Net";
