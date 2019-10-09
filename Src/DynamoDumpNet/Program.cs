@@ -8,8 +8,10 @@ using Microsoft.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace DynamoDumpNet
@@ -260,36 +262,53 @@ namespace DynamoDumpNet
             // Load the movie data into the table (this could take some time)
             ShowInfo("Scanning DynamoDB table", _describeTableResponse.Table.ItemCount);
 
-            ScanRequest scanRequest = new ScanRequest(_tableName)
-            {
-                Select = Select.ALL_ATTRIBUTES
-            };
-            ScanResponse scanResponse = await _client.ScanAsync(scanRequest);
-
-            int totalItems = scanResponse.Items.Count;
-
-            ShowInfo("Writting {0} item to backup file", totalItems);
+            Dictionary<string, AttributeValue> lastEvaluatedKey = null;
+            int totalItemsCount = 0;
+            bool isFirstItem = true;
 
             using (var writer = File.CreateText(_fileName))
             {
                 writer.WriteLine("[");
 
-                int itemIndex = 0;
-
-                foreach (var item in scanResponse.Items)
+                do
                 {
-                    itemIndex++;
+                    ScanRequest scanRequest = new ScanRequest(_tableName)
+                    {
+                        Select = Select.ALL_ATTRIBUTES,
+                        ExclusiveStartKey = lastEvaluatedKey,
+                        Limit = 500
+                    };
 
-                    Document document = Document.FromAttributeMap(item);
-                    string json = document.ToJsonPretty();
+                    ScanResponse scanResponse = await _client.ScanAsync(scanRequest);
+                    lastEvaluatedKey = scanResponse.LastEvaluatedKey;
 
-                    await writer.WriteLineAsync(json + (itemIndex < totalItems ? "," : string.Empty));
-                }
+                    int batchItems = scanResponse.Items.Count;
+                    totalItemsCount += batchItems;
+
+                    ShowInfo("Writing batch of {0} item to backup file", batchItems);
+
+                    StringBuilder builder = new StringBuilder();
+
+                    foreach (var item in scanResponse.Items)
+                    {
+                        Document document = Document.FromAttributeMap(item);
+                        string json = document.ToJsonPretty();
+                        string line = (!isFirstItem ? "," : string.Empty) + json;
+                        
+                        // await writer.WriteLineAsync(line);
+                        builder.AppendLine(line);
+
+                        isFirstItem = false;
+                    }
+
+                    await writer.WriteLineAsync(builder.ToString());
+
+                } while (lastEvaluatedKey != null && lastEvaluatedKey.Count > 0);
 
                 writer.Write("]");
             }
 
-            ShowInfo("Finished importing {0} records from DynamoDB", scanResponse.Items.Count);
+            ShowInfo("Finished importing {0} records from DynamoDB", totalItemsCount);
             PauseForDebugWindow();
         }
 
