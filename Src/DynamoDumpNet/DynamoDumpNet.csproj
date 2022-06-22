@@ -21,7 +21,7 @@
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.3.17.13" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.4.58" />
     <PackageReference Include="Microsoft.Extensions.CommandLineUtils" Version="1.1.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
 </Project>
